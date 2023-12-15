@@ -8,22 +8,22 @@
    git clone https://github.com/jdw1023/cisc849-project.git
    cd cisc849-project
    ```
-2. Create a virtual environment (optional but recommended):
+2. **Create a virtual environment (optional but recommended):**
   ```bash
   python -m venv venv
   ```
-3. Activate the virtual environment:
+3. **Activate the virtual environment:**
   
   ```bash
   source venv/bin/activate
   ```
   
-4. Install the project dependencies:
+4. **Install the project dependencies:**
   ```bash
   pip install -r requirements.txt
   ```
 
-5. Run the program:
+5. **Run the program:**
   ```bash
   python3 captioning_gui3.py
   ```
