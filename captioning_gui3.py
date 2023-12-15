@@ -19,16 +19,18 @@ class AudioRecorder(QObject):
 
     def __init__(self, parent):
         super().__init__(parent)
-        self.chunk = 480
+        self.chunk = 480 # 480 # 0.03s * 16000 = 480
         self.format = pyaudio.paInt16
         self.channels = 1
         self.rate = 16000
+        self.use_vad = True
         self.vad = webrtcvad.Vad(2)
         self.p = pyaudio.PyAudio()
         self.src_lan = "en"
         self.tgt_lan = "en"
         self.tokenizer = create_tokenizer(self.tgt_lan)
-        self.asr = FasterWhisperASR(self.src_lan, "large-v2")
+        self.asr = FasterWhisperASR(self.src_lan, "large-v3")
+        # self.asr.set_translate_task()
         self.online = OnlineASRProcessor(self.asr, self.tokenizer)
         self.processed = False
         self.asr.use_vad()
@@ -58,20 +60,32 @@ class AudioRecorder(QObject):
 
     def callback(self, in_data, frame_count, time_info, status):
         audio_chunk = np.frombuffer(in_data, dtype=np.int16)
-        if self.vad.is_speech(audio_chunk.tobytes(), sample_rate=self.rate):
-            self.online.insert_audio_chunk(audio_chunk)
-            self.processed = False
-        elif not self.processed:
-            o = self.online.process_iter()
-            self.processed = True
-            # o[2] = o[2].strip()
-            result = o[2].strip()
-            if result != "":
-                if "." in o[2]:
-                    self.transcription_ready.emit(result+"\n")
-                    self.online.init()
-                else:
-                    self.transcription_ready.emit(result)
+        if self.use_vad:
+            if self.vad.is_speech(audio_chunk.tobytes(), sample_rate=self.rate):
+                self.online.insert_audio_chunk(audio_chunk)
+                self.processed = False
+            elif not self.processed:
+                o = self.online.process_iter()
+                self.processed = True
+                # o[2] = o[2].strip()
+                result = o[2].strip()
+                if result != "":
+                    if "." in o[2]:
+                        self.transcription_ready.emit(result+"\n")
+                        self.online.init()
+                    else:
+                        self.transcription_ready.emit(result)
+        else:
+                self.online.insert_audio_chunk(audio_chunk)
+                o = self.online.process_iter()
+                result = o[2].strip()
+                if result != "":
+                    if "." in o[2]:
+                        self.transcription_ready.emit(result+"\n")
+                        self.online.init()
+                    else:
+                        self.transcription_ready.emit(result)
+
 
         return in_data, pyaudio.paContinue
 
@@ -94,6 +108,7 @@ class CaptioningApp(QWidget):
         self.line_spacing_slider = QSlider(Qt.Horizontal)
         self.text_alignment_button = QPushButton("Toggle Text Alignment")
         self.transparency_button = QPushButton("Toggle Transparency")
+        self.transparency_status = False
 
         self.layout = QVBoxLayout(self)
         self.layout.addWidget(self.label)
@@ -122,7 +137,7 @@ class CaptioningApp(QWidget):
         self.font_color_button.clicked.connect(self.select_font_color)
         self.line_spacing_slider.valueChanged.connect(self.update_line_spacing)
         self.text_alignment_button.clicked.connect(self.toggle_text_alignment)
-        # self.transparency_button.clicked.connect(self.toggle_transparency)
+        self.transparency_button.clicked.connect(self.toggle_transparency)
         
 
         self.recording_thread = None
@@ -179,6 +194,14 @@ class CaptioningApp(QWidget):
             self.text_edit.setAlignment(Qt.AlignRight)
         else:
             self.text_edit.setAlignment(Qt.AlignLeft)
+    
+    def toggle_transparency(self):
+        if self.transparency_status:
+            window.setStyleSheet("background: rgba(255,255,255,100%);")
+            self.start_button.setStyleSheet("background: rgba(255,255,255,100%);")
+        else:
+            window.setStyleSheet("background: rgba(255,255,255,50%);")
+        self.transparency_status = not self.transparency_status
 
 
 def handle_last_window_closed():
@@ -197,6 +220,8 @@ if __name__ == "__main__":
 
     # create main GUI
     window = CaptioningApp()
+    window.setAttribute(Qt.WA_TranslucentBackground)
+    window.setStyleSheet("background: rgba(255,255,255,100%)")
     window.setWindowTitle("Real-time Captioning App")
     window.setGeometry(100, 100, 800, 600)
 
