@@ -28,3 +28,4 @@
   python3 captioning_gui3.py
   ```
 
+The software is tested on a Laptop running Ubuntu 22.04 LTS with Python 3.10.6. The default configuration for (Whisper_Streaming)[https://github.com/ufal/whisper_streaming] is to run on GPU using NVIDIA CUDA. So a system with CUDA support is needed.
